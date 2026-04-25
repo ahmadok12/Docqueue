@@ -1,0 +1,2288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocQueue — Enhanced Clinic System</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --teal: #0d9e7a;
+    --teal-light: #e1f5ee;
+    --teal-mid: #1d9e75;
+    --teal-dark: #085041;
+    --amber: #e8900a;
+    --amber-light: #faeeda;
+    --red: #d94040;
+    --red-light: #fcebeb;
+    --blue: #1a6dbf;
+    --blue-light: #e6f1fb;
+    --purple: #7c3aed;
+    --purple-light: #ede9fe;
+    --bg: #f7f6f2;
+    --surface: #ffffff;
+    --text: #1a1a18;
+    --text-muted: #6b6b66;
+    --text-hint: #9b9b96;
+    --border: rgba(0,0,0,0.1);
+    --border-strong: rgba(0,0,0,0.18);
+    --shadow: 0 2px 12px rgba(0,0,0,0.07);
+    --shadow-md: 0 4px 24px rgba(0,0,0,0.1);
+    --r: 14px;
+    --r-sm: 8px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* App toggle */
+  .app-toggle {
+    background: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 16px;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    flex-wrap: wrap;
+  }
+  .app-toggle span { font-size: 12px; font-weight: 500; letter-spacing: 0.02em; }
+  .toggle-pill {
+    display: flex;
+    background: rgba(255,255,255,0.12);
+    border-radius: 100px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .toggle-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px 16px;
+    border-radius: 100px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.6);
+    transition: all 0.2s;
+  }
+  .toggle-btn.active { background: white; color: var(--text); }
+
+  /* Views */
+  .view { display: none; flex-direction: column; flex: 1; }
+  .view.active { display: flex; }
+
+  /* ===================== PATIENT APP ===================== */
+  .patient-app { background: var(--bg); }
+
+  .phone-frame {
+    width: 390px;
+    margin: 30px auto;
+    background: var(--surface);
+    border-radius: 40px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.08);
+    overflow: hidden;
+    min-height: 750px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  @media (max-width: 440px) {
+    .phone-frame {
+      width: 100%;
+      border-radius: 0;
+      margin: 0;
+      box-shadow: none;
+      min-height: calc(100svh - 44px);
+    }
+    .patient-app > div {
+      padding: 0 !important;
+    }
+    .p-nav { padding: 12px 16px 12px; }
+  }
+
+  .p-nav {
+    background: var(--teal-dark);
+    padding: 50px 20px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .p-nav-logo { font-family: 'Fraunces', serif; font-size: 20px; color: white; font-weight: 300; }
+  .p-nav-logo strong { font-weight: 600; color: #9fe1cb; }
+  .p-nav-badge {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-weight: 500;
+  }
+
+  .p-screen { display: none; flex: 1; flex-direction: column; overflow-y: auto; }
+  .p-screen.active { display: flex; }
+
+  /* Clinic status banner */
+  .clinic-status-banner {
+    margin: 12px 16px 0;
+    border-radius: var(--r-sm);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .csb-open { background: var(--teal-light); color: var(--teal-dark); border: 1px solid rgba(13,158,122,0.25); }
+  .csb-delayed { background: var(--amber-light); color: #7a4b00; border: 1px solid rgba(232,144,10,0.3); }
+  .csb-closed { background: var(--red-light); color: #7a1a1a; border: 1px solid rgba(217,64,64,0.3); }
+  .csb-break { background: var(--blue-light); color: #0d3f77; border: 1px solid rgba(26,109,191,0.25); }
+  .csb-icon { font-size: 16px; }
+
+  /* Doctor info card */
+  .doctor-card {
+    margin: 12px 16px 0;
+    background: linear-gradient(135deg, #0f6e56 0%, #1d9e75 100%);
+    border-radius: var(--r);
+    padding: 18px 20px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+  }
+  .doctor-card::before {
+    content: '';
+    position: absolute;
+    right: -20px; top: -20px;
+    width: 120px; height: 120px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 50%;
+  }
+  .doctor-card::after {
+    content: '';
+    position: absolute;
+    right: 20px; bottom: -30px;
+    width: 80px; height: 80px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 50%;
+  }
+  .doc-name { font-size: 17px; font-weight: 600; margin-bottom: 2px; }
+  .doc-spec { font-size: 12px; opacity: 0.8; margin-bottom: 12px; }
+  .doc-meta { display: flex; gap: 14px; }
+  .doc-meta-item { font-size: 11px; opacity: 0.75; }
+  .doc-meta-item strong { display: block; font-size: 13px; opacity: 1; font-weight: 600; }
+  .doc-avail {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    font-size: 11px;
+    opacity: 0.75;
+  }
+  .avail-days { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+  .avail-day {
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.2);
+    color: white;
+  }
+  .avail-day.today { background: rgba(255,255,255,0.9); color: var(--teal-dark); }
+  .avail-day.off { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.4); text-decoration: line-through; }
+
+  /* Live queue */
+  .queue-section { padding: 12px 16px 0; }
+  .section-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--text-hint); text-transform: uppercase; margin-bottom: 10px;
+  }
+  .queue-live {
+    background: var(--surface);
+    border-radius: var(--r);
+    border: 1px solid var(--border);
+    padding: 14px;
+    box-shadow: var(--shadow);
+  }
+  .queue-status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .live-dot {
+    width: 8px; height: 8px;
+    background: var(--teal);
+    border-radius: 50%;
+    animation: pulse 1.5s ease infinite;
+    flex-shrink: 0;
+  }
+  .live-dot.paused { background: var(--amber); animation: none; }
+  .live-dot.closed { background: var(--red); animation: none; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+  .live-label { font-size: 12px; font-weight: 600; color: var(--teal); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .current-number-display {
+    text-align: center;
+    padding: 12px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .current-label { font-size: 11px; color: var(--text-hint); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .current-number { font-family: 'Fraunces', serif; font-size: 52px; font-weight: 600; color: var(--teal); line-height: 1; }
+  .current-name { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+  .my-token {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--teal-light);
+    border-radius: var(--r-sm);
+    padding: 10px 12px;
+  }
+  .my-token-label { font-size: 11px; font-weight: 600; color: var(--teal-dark); text-transform: uppercase; letter-spacing: 0.05em; }
+  .my-token-number { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 600; color: var(--teal-dark); line-height: 1.1; }
+  .my-eta { text-align: right; }
+  .my-eta-label { font-size: 11px; color: var(--teal-mid); margin-bottom: 2px; }
+  .my-eta-time { font-size: 18px; font-weight: 600; color: var(--teal-dark); }
+  .my-eta-sub { font-size: 11px; color: var(--teal-mid); }
+
+  .wait-info { display: flex; gap: 8px; margin-top: 10px; }
+  .wait-chip { flex: 1; background: var(--bg); border-radius: var(--r-sm); padding: 8px; text-align: center; border: 1px solid var(--border); }
+  .wait-chip-val { font-size: 15px; font-weight: 600; color: var(--text); }
+  .wait-chip-label { font-size: 10px; color: var(--text-hint); margin-top: 2px; }
+
+  /* SMS opt-in */
+  .sms-optin {
+    margin: 12px 16px 0;
+    background: var(--blue-light);
+    border: 1px solid rgba(26,109,191,0.2);
+    border-radius: var(--r-sm);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .sms-optin-text { flex: 1; font-size: 12px; color: var(--blue); font-weight: 500; line-height: 1.4; }
+  .sms-toggle {
+    width: 36px; height: 20px;
+    background: rgba(26,109,191,0.2);
+    border-radius: 100px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+    border: none;
+  }
+  .sms-toggle.on { background: var(--blue); }
+  .sms-toggle::after {
+    content: '';
+    position: absolute;
+    width: 14px; height: 14px;
+    background: white;
+    border-radius: 50%;
+    top: 3px; left: 3px;
+    transition: left 0.2s;
+  }
+  .sms-toggle.on::after { left: 19px; }
+
+  /* Upcoming list */
+  .upcoming-list { display: flex; flex-direction: column; gap: 6px; }
+
+  /* Book form */
+  .p-form { padding: 16px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+  .p-form-group { }
+  .p-label { font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; display: block; }
+  .p-input {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 10px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--surface);
+    outline: none;
+    transition: border-color 0.2s;
+    appearance: none;
+  }
+  .p-input:focus { border-color: var(--teal); }
+  .slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .slot-btn {
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--r-sm);
+    padding: 10px 4px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .slot-btn:hover { border-color: var(--teal); background: var(--teal-light); }
+  .slot-btn.selected { border-color: var(--teal); background: var(--teal); color: white; }
+  .slot-time { font-size: 13px; font-weight: 600; }
+  .slot-avail { font-size: 10px; color: var(--text-hint); margin-top: 2px; }
+  .slot-btn.selected .slot-avail { color: rgba(255,255,255,0.8); }
+  .book-btn {
+    background: var(--teal);
+    color: white;
+    border: none;
+    border-radius: var(--r-sm);
+    padding: 15px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: auto;
+  }
+  .book-btn:hover { background: var(--teal-dark); }
+
+  /* Confirm screen */
+  .confirm-screen {
+    padding: 26px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    flex: 1;
+  }
+  .confirm-icon {
+    width: 70px; height: 70px;
+    background: var(--teal-light);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  .confirm-icon svg { width: 34px; height: 34px; }
+  .confirm-title { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 600; margin-bottom: 8px; color: var(--teal-dark); }
+  .confirm-sub { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; }
+  .token-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 20px;
+    width: 100%;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+  }
+  .token-big { font-family: 'Fraunces', serif; font-size: 64px; font-weight: 600; color: var(--teal); line-height: 1; }
+  .token-label { font-size: 12px; color: var(--text-hint); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .token-info { margin-top: 12px; display: flex; gap: 10px; }
+  .token-info-item { flex: 1; background: var(--bg); border-radius: var(--r-sm); padding: 8px; }
+  .token-info-val { font-size: 13px; font-weight: 600; }
+  .token-info-key { font-size: 10px; color: var(--text-hint); margin-top: 2px; }
+
+  /* Past visits screen */
+  .past-visit-item {
+    margin: 0 16px 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .pv-icon {
+    width: 36px; height: 36px;
+    background: var(--teal-light);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .pv-info { flex: 1; }
+  .pv-doc { font-size: 13px; font-weight: 600; color: var(--text); }
+  .pv-meta { font-size: 11px; color: var(--text-hint); margin-top: 2px; }
+  .pv-token {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--teal);
+  }
+
+  /* Follow-up reminder card on patient home */
+  .followup-alert {
+    margin: 10px 16px 0;
+    background: var(--amber-light);
+    border: 1px solid rgba(232,144,10,0.3);
+    border-radius: var(--r-sm);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .followup-alert-icon { font-size: 18px; }
+  .followup-alert-text { flex: 1; }
+  .followup-alert-title { font-size: 12px; font-weight: 700; color: #7a4b00; }
+  .followup-alert-sub { font-size: 11px; color: #9a6000; margin-top: 1px; }
+
+  /* Bottom nav */
+  .bottom-nav {
+    display: flex;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 10px 0 24px;
+  }
+  .nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    padding: 6px 0;
+    transition: opacity 0.15s;
+    border: none;
+    background: none;
+  }
+  .nav-icon { width: 20px; height: 20px; opacity: 0.4; }
+  .nav-item.active .nav-icon { opacity: 1; filter: invert(44%) sepia(60%) saturate(600%) hue-rotate(120deg); }
+  .nav-label { font-size: 10px; color: var(--text-hint); font-family: 'DM Sans', sans-serif; font-weight: 500; }
+  .nav-item.active .nav-label { color: var(--teal); }
+
+  /* ===================== DOCTOR APP (MASTER) ===================== */
+  .doctor-app { background: #0f1a17; min-height: 100vh; }
+
+  .d-header {
+    background: #0f1a17;
+    padding: 20px 28px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .d-logo { font-family: 'Fraunces', serif; font-size: 20px; color: white; font-weight: 300; }
+  .d-logo strong { color: #9fe1cb; font-weight: 600; }
+  .d-header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .d-doctor-pill {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 100px;
+    padding: 5px 12px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+    font-weight: 500;
+  }
+  .d-date { font-size: 12px; color: rgba(255,255,255,0.4); }
+
+  /* Doctor tabs */
+  .d-tabs {
+    display: flex;
+    gap: 2px;
+    background: rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    padding: 0 28px;
+    overflow-x: auto;
+  }
+  .d-tab {
+    padding: 12px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.4);
+    cursor: pointer;
+    border: none;
+    background: none;
+    border-bottom: 2px solid transparent;
+    font-family: 'DM Sans', sans-serif;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .d-tab.active { color: #9fe1cb; border-bottom-color: #9fe1cb; }
+  .d-tab:hover { color: rgba(255,255,255,0.7); }
+
+  .d-tab-pane { display: none; }
+  .d-tab-pane.active { display: flex; }
+
+  .d-body { flex: 1; }
+
+  /* Queue tab layout */
+  .d-layout { display: flex; gap: 0; min-height: calc(100vh - 120px); }
+
+  /* Left panel */
+  .d-left {
+    width: 320px;
+    flex-shrink: 0;
+    background: #141f1c;
+    border-right: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    gap: 18px;
+    overflow-y: auto;
+  }
+
+  /* Current patient control */
+  .current-control {
+    background: linear-gradient(135deg, #0f6e56, #1d9e75);
+    border-radius: 16px;
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .current-control::before {
+    content: '';
+    position: absolute;
+    right: -20px; bottom: -20px;
+    width: 100px; height: 100px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 50%;
+  }
+  .cc-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.65); margin-bottom: 4px; }
+  .cc-num { font-family: 'Fraunces', serif; font-size: 56px; font-weight: 600; color: white; line-height: 1; }
+  .cc-name { font-size: 14px; color: rgba(255,255,255,0.8); margin-bottom: 4px; margin-top: 4px; }
+  .cc-visit-reason { font-size: 11px; color: rgba(255,255,255,0.55); margin-bottom: 14px; }
+  .cc-actions { display: flex; gap: 8px; }
+  .cc-btn {
+    flex: 1;
+    padding: 10px 0;
+    border-radius: 10px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .cc-btn-done { background: white; color: #0f6e56; }
+  .cc-btn-done:hover { background: #f0fdf8; }
+  .cc-btn-skip { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); }
+  .cc-btn-skip:hover { background: rgba(255,255,255,0.22); }
+  .cc-btn-noshow { background: rgba(217,64,64,0.25); color: #f99; border: 1px solid rgba(217,64,64,0.3); font-size: 11px; }
+
+  /* Clinic mode controls */
+  .clinic-mode-bar {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .clinic-mode-title { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.35); margin-bottom: 10px; }
+  .mode-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mode-btn {
+    padding: 7px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.6);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  .mode-btn.active-open { background: rgba(13,158,122,0.2); border-color: rgba(13,158,122,0.4); color: #9fe1cb; }
+  .mode-btn.active-break { background: rgba(26,109,191,0.2); border-color: rgba(26,109,191,0.4); color: #93c5fd; }
+  .mode-btn.active-closed { background: rgba(217,64,64,0.2); border-color: rgba(217,64,64,0.4); color: #fca5a5; }
+  .mode-btn.active-delayed { background: rgba(232,144,10,0.2); border-color: rgba(232,144,10,0.4); color: #fbbf24; }
+
+  /* Stats */
+  .d-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .d-stat {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .d-stat-val { font-size: 20px; font-weight: 600; color: white; font-family: 'Fraunces', serif; }
+  .d-stat-label { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .d-sep { height: 1px; background: rgba(255,255,255,0.06); }
+  .d-section-title { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.35); margin-bottom: 10px; }
+
+  /* Walk-in & interval */
+  .walkin-form { display: flex; flex-direction: column; gap: 8px; }
+  .d-input {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: white;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+  .d-input::placeholder { color: rgba(255,255,255,0.3); }
+  .d-input:focus { border-color: var(--teal-mid); }
+  .d-input option { background: #1a2e28; }
+  .walkin-btn {
+    background: rgba(29, 158, 117, 0.25);
+    border: 1px solid rgba(29, 158, 117, 0.5);
+    color: #9fe1cb;
+    border-radius: 10px;
+    padding: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .walkin-btn:hover { background: rgba(29, 158, 117, 0.4); }
+  .interval-row { display: flex; align-items: center; gap: 10px; }
+  .d-input-sm {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: white;
+    outline: none;
+    width: 70px;
+    text-align: center;
+  }
+  .interval-label { font-size: 12px; color: rgba(255,255,255,0.5); flex: 1; }
+
+  /* Queue list right panel */
+  .d-right { flex: 1; padding: 20px; overflow: auto; }
+  .d-queue-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+  }
+  .d-queue-title { font-size: 16px; font-weight: 600; color: white; }
+  .d-queue-meta { font-size: 12px; color: rgba(255,255,255,0.4); }
+
+  .queue-table-header {
+    display: grid;
+    grid-template-columns: 54px 1fr 90px 90px 90px 110px;
+    gap: 10px;
+    padding: 0 14px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+  }
+  .queue-row {
+    display: grid;
+    grid-template-columns: 54px 1fr 90px 90px 90px 110px;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    margin-bottom: 5px;
+    align-items: center;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.03);
+    transition: background 0.15s;
+  }
+  .queue-row:hover { background: rgba(255,255,255,0.055); }
+  .queue-row.current { background: rgba(29, 158, 117, 0.12); border-color: rgba(29, 158, 117, 0.3); }
+  .queue-row.done { opacity: 0.3; }
+  .queue-row.noshow { opacity: 0.25; }
+  .queue-row.priority { border-color: rgba(232,144,10,0.4); background: rgba(232,144,10,0.06); }
+  .q-num { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 600; color: white; }
+  .queue-row.current .q-num { color: #9fe1cb; }
+  .queue-row.done .q-num { text-decoration: line-through; }
+  .q-name { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.85); }
+  .q-name-sub { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 1px; }
+  .q-note-badge { font-size: 10px; color: rgba(232,144,10,0.9); margin-top: 2px; }
+  .q-type-pill {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .pill-online { background: rgba(29, 158, 117, 0.15); color: #9fe1cb; border: 1px solid rgba(29, 158, 117, 0.3); }
+  .pill-walkin { background: rgba(186, 117, 23, 0.15); color: #fac775; border: 1px solid rgba(186, 117, 23, 0.3); }
+  .pill-priority { background: rgba(217,64,64,0.15); color: #fca5a5; border: 1px solid rgba(217,64,64,0.3); }
+  .q-eta { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); }
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 100px;
+  }
+  .status-ongoing { background: rgba(29, 158, 117, 0.2); color: #5dcaa5; }
+  .status-waiting { background: transparent; color: rgba(255,255,255,0.3); }
+  .status-done { background: transparent; color: rgba(255,255,255,0.2); }
+  .status-noshow { background: rgba(217,64,64,0.15); color: #fca5a5; }
+
+  /* Patient note inline */
+  .q-note-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    color: rgba(255,255,255,0.4);
+    font-size: 10px;
+    padding: 2px 6px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  .q-note-btn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+
+  /* Follow-up date modal overlay */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #1a2e28;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 24px;
+    width: 360px;
+    max-width: 95vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .modal-title { font-size: 16px; font-weight: 600; color: white; margin-bottom: 4px; }
+  .modal-sub { font-size: 12px; color: rgba(255,255,255,0.4); margin-bottom: 18px; }
+  .modal-field { margin-bottom: 14px; }
+  .modal-label { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 6px; display: block; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; }
+  .quick-days { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .quick-day-btn {
+    padding: 5px 12px;
+    border-radius: 100px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.6);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  .quick-day-btn:hover, .quick-day-btn.active { background: rgba(29, 158, 117, 0.3); border-color: rgba(29, 158, 117, 0.5); color: #9fe1cb; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+  .modal-btn {
+    flex: 1;
+    padding: 11px;
+    border-radius: 10px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .modal-btn-primary { background: var(--teal); color: white; }
+  .modal-btn-primary:hover { background: var(--teal-dark); }
+  .modal-btn-cancel { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); }
+
+  /* Patient note modal */
+  .note-modal { background: #1a2e28; }
+
+  /* ===== FOLLOW-UP PANEL ===== */
+  .followup-panel { padding: 24px 28px; flex: 1; overflow-y: auto; }
+  .followup-section-title { font-size: 16px; font-weight: 600; color: white; margin-bottom: 4px; }
+  .followup-section-sub { font-size: 13px; color: rgba(255,255,255,0.4); margin-bottom: 20px; }
+
+  .followup-group { margin-bottom: 28px; }
+  .followup-group-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 6px 12px; border-radius: 6px; margin-bottom: 10px; display: inline-block;
+  }
+  .fgl-today { background: rgba(217,64,64,0.2); color: #fca5a5; }
+  .fgl-tomorrow { background: rgba(232,144,10,0.2); color: #fbbf24; }
+  .fgl-upcoming { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.4); }
+
+  .followup-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+  }
+  .followup-card.urgent { border-color: rgba(217,64,64,0.3); background: rgba(217,64,64,0.05); }
+  .followup-card.soon { border-color: rgba(232,144,10,0.25); background: rgba(232,144,10,0.04); }
+  .fc-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0f6e56, #1d9e75);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 600; color: white;
+    font-family: 'Fraunces', serif;
+    flex-shrink: 0;
+  }
+  .fc-info { flex: 1; }
+  .fc-name { font-size: 14px; font-weight: 600; color: white; }
+  .fc-meta { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+  .fc-due { text-align: right; }
+  .fc-due-date { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.7); }
+  .fc-due-label { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 1px; }
+  .fc-actions { display: flex; gap: 6px; }
+  .fc-call-btn {
+    padding: 5px 12px;
+    border-radius: 8px;
+    background: rgba(29, 158, 117, 0.2);
+    border: 1px solid rgba(29, 158, 117, 0.4);
+    color: #9fe1cb;
+    font-size: 11px; font-weight: 600;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .fc-call-btn:hover { background: rgba(29, 158, 117, 0.35); }
+  .fc-call-btn.urgent { background: rgba(217,64,64,0.2); border-color: rgba(217,64,64,0.4); color: #fca5a5; }
+
+  /* ===== DAILY SUMMARY PANEL ===== */
+  .summary-panel { padding: 24px 28px; flex: 1; overflow-y: auto; }
+  .summary-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+  .summary-title { font-size: 18px; font-weight: 600; color: white; }
+  .summary-date { font-size: 13px; color: rgba(255,255,255,0.4); }
+
+  .summary-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .kpi-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 18px;
+    text-align: center;
+  }
+  .kpi-val { font-family: 'Fraunces', serif; font-size: 34px; font-weight: 600; color: white; }
+  .kpi-label { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .kpi-sub { font-size: 12px; color: rgba(255,255,255,0.25); margin-top: 3px; }
+
+  .summary-chart-area {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .chart-title { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 16px; }
+  .hour-bars { display: flex; align-items: flex-end; gap: 8px; height: 80px; }
+  .hour-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .hour-bar {
+    width: 100%;
+    background: rgba(29, 158, 117, 0.4);
+    border-radius: 4px 4px 0 0;
+    min-height: 4px;
+    transition: background 0.15s;
+  }
+  .hour-bar.peak { background: #1d9e75; }
+  .hour-bar-label { font-size: 9px; color: rgba(255,255,255,0.25); }
+
+  /* ===== DOCTOR SCHEDULE PANEL ===== */
+  .schedule-panel { padding: 24px 28px; flex: 1; overflow-y: auto; }
+  .schedule-title { font-size: 18px; font-weight: 600; color: white; margin-bottom: 4px; }
+  .schedule-sub { font-size: 13px; color: rgba(255,255,255,0.4); margin-bottom: 24px; }
+
+  .doctor-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .doctor-profile-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .dpc-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .dpc-avatar {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0f6e56, #1d9e75);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 600; color: white; font-family: 'Fraunces', serif;
+  }
+  .dpc-name { font-size: 14px; font-weight: 600; color: white; }
+  .dpc-spec { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 1px; }
+  .dpc-days { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px; }
+  .dpc-day {
+    padding: 3px 9px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .dpc-day.active { background: rgba(29, 158, 117, 0.2); color: #9fe1cb; border: 1px solid rgba(29, 158, 117, 0.3); }
+  .dpc-day.off { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.06); }
+  .dpc-hours { font-size: 12px; color: rgba(255,255,255,0.4); }
+  .dpc-status {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600;
+    padding: 4px 10px; border-radius: 100px; margin-top: 10px;
+  }
+  .dpc-status.available { background: rgba(29,158,122,0.15); color: #9fe1cb; }
+  .dpc-status.unavailable { background: rgba(217,64,64,0.15); color: #fca5a5; }
+  .dpc-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* Multi-doctor queue select */
+  .doctor-queue-selector {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .dq-btn {
+    padding: 7px 14px;
+    border-radius: 100px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.5);
+    font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .dq-btn.active { background: rgba(29, 158, 117, 0.25); border-color: rgba(29, 158, 117, 0.5); color: #9fe1cb; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: #1d9e75;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 100px;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 999;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+
+  /* ===================== MOBILE RESPONSIVE ===================== */
+  @media (max-width: 768px) {
+
+    /* Doctor/Receptionist header */
+    .d-header {
+      padding: 14px 16px 12px;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .d-header-right { width: 100%; justify-content: space-between; }
+    .d-logo { font-size: 17px; }
+    .d-date { font-size: 11px; }
+    .d-doctor-pill { font-size: 11px; padding: 4px 10px; }
+
+    /* Tabs */
+    .d-tabs { padding: 0 8px; gap: 0; }
+    .d-tab { padding: 10px 10px; font-size: 11px; }
+
+    /* Queue tab: stack panels vertically */
+    .d-layout { flex-direction: column; min-height: unset; }
+    .d-left {
+      width: 100%;
+      border-right: none;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 14px 16px;
+      gap: 14px;
+    }
+    .d-right { padding: 14px 16px; overflow-x: hidden; }
+
+    /* Queue table header hidden; rows become cards */
+    .queue-table-header { display: none; }
+    .queue-row {
+      display: grid;
+      grid-template-columns: 44px 1fr auto;
+      grid-template-rows: auto auto;
+      gap: 4px 8px;
+      align-items: start;
+      padding: 11px 12px;
+    }
+    .queue-row > div:nth-child(1) { grid-row: 1 / 3; align-self: center; }
+    .queue-row > div:nth-child(2) { grid-column: 2; }
+    .queue-row > div:nth-child(3) { grid-row: 1; grid-column: 3; }
+    .queue-row > div:nth-child(4) { display: none; }
+    .queue-row > div:nth-child(5) { display: none; }
+    .queue-row > div:nth-child(6) { grid-row: 2; grid-column: 2 / 4; }
+    .q-num { font-size: 18px; }
+
+    /* Current control */
+    .cc-num { font-size: 44px; }
+    .cc-actions { flex-wrap: wrap; }
+    .cc-btn { padding: 9px 0; font-size: 11px; }
+
+    /* Stats */
+    .d-stats { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .d-stat { padding: 8px; }
+    .d-stat-val { font-size: 16px; }
+    .d-stat-label { font-size: 9px; }
+
+    /* KPI summary grid */
+    .summary-kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .kpi-val { font-size: 26px; }
+
+    /* Follow-up cards */
+    .followup-card { flex-wrap: wrap; gap: 10px; }
+    .fc-due { text-align: left; }
+
+    /* Doctor cards grid */
+    .doctor-cards-grid { grid-template-columns: 1fr; }
+
+    /* Panels padding */
+    .followup-panel, .summary-panel, .schedule-panel { padding: 16px; }
+
+    /* Mode buttons */
+    .mode-btn { font-size: 11px; padding: 6px 10px; }
+
+    /* Doctor queue selector */
+    .dq-btn { padding: 6px 12px; font-size: 11px; }
+
+    /* D-queue header */
+    .d-queue-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+
+    /* Modal */
+    .modal-box { padding: 20px 16px; border-radius: 16px; }
+    .modal-actions { flex-direction: column; }
+    .modal-btn { padding: 12px; }
+
+    /* Toast */
+    .toast {
+      left: 16px; right: 16px; width: auto;
+      transform: translateX(0) translateY(100px);
+      white-space: normal; text-align: center; bottom: 20px;
+    }
+    .toast.show { transform: translateX(0) translateY(0); }
+  }
+
+  /* Extra small screens */
+  @media (max-width: 380px) {
+    .d-stats { grid-template-columns: repeat(2, 1fr); }
+    .cc-btn { font-size: 10px; }
+    .d-tab { padding: 10px 7px; font-size: 10px; }
+    .d-logo { font-size: 15px; }
+  }
+
+</style>
+</head>
+<body>
+
+<div class="app-toggle">
+  <span style="color:rgba(255,255,255,0.5);">View as:</span>
+  <div class="toggle-pill">
+    <button class="toggle-btn active" id="toggle-patient" onclick="switchApp('patient')">Patient App</button>
+    <button class="toggle-btn" id="toggle-doctor" onclick="switchApp('doctor')">Receptionist / Doctor</button>
+  </div>
+</div>
+
+<!-- ===== PATIENT VIEW ===== -->
+<div class="view active patient-app" id="view-patient">
+  <div style="max-width:480px; margin:0 auto; width:100%; padding:0 16px;">
+    <div class="phone-frame">
+      <div class="p-nav">
+        <div class="p-nav-logo">Doc<strong>Queue</strong></div>
+        <div class="p-nav-badge" id="p-live-badge">Live: Token 7</div>
+      </div>
+
+      <!-- HOME SCREEN -->
+      <div class="p-screen active" id="p-home">
+
+        <!-- Follow-up alert (shown when patient has a due visit) -->
+        <div class="followup-alert" id="p-followup-alert">
+          <div class="followup-alert-icon">📅</div>
+          <div class="followup-alert-text">
+            <div class="followup-alert-title">Upcoming Follow-up Visit Due</div>
+            <div class="followup-alert-sub">Dr. Ibrahim scheduled a revisit for you on <strong>May 10</strong></div>
+          </div>
+        </div>
+
+        <!-- Clinic status -->
+        <div class="clinic-status-banner csb-open" id="p-clinic-status-banner">
+          <span class="csb-icon">🟢</span>
+          <span id="p-clinic-status-text">Clinic is open — Doctor is available</span>
+        </div>
+
+        <!-- Doctor card -->
+        <div class="doctor-card" style="margin-top:12px;">
+          <div class="doc-name">Dr. Muhammad Ibrahim</div>
+          <div class="doc-spec">M.B.B.S (SIMS), MS (ENT) — ENT Specialist</div>
+          <div class="doc-meta">
+            <div class="doc-meta-item"><strong>Fatima Medical</strong> Clinic</div>
+            <div class="doc-meta-item"><strong id="p-total-today">14</strong> Total today</div>
+            <div class="doc-meta-item"><strong>10 min</strong> Per patient</div>
+          </div>
+          <div class="doc-avail">
+            <span>Available days:</span>
+            <div class="avail-days">
+              <span class="avail-day today">Mon</span>
+              <span class="avail-day">Tue</span>
+              <span class="avail-day">Wed</span>
+              <span class="avail-day">Thu</span>
+              <span class="avail-day today">Fri</span>
+              <span class="avail-day off">Sat</span>
+              <span class="avail-day off">Sun</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live queue -->
+        <div class="queue-section" style="margin-top:12px;">
+          <div class="section-label">Live Queue</div>
+          <div class="queue-live">
+            <div class="queue-status-row">
+              <div class="live-dot" id="p-live-dot"></div>
+              <div class="live-label" id="p-live-status-label">Clinic is open</div>
+              <div style="margin-left:auto;font-size:12px;color:var(--text-hint)" id="p-clock">4:00 PM</div>
+            </div>
+            <div class="current-number-display">
+              <div class="current-label">Currently seeing</div>
+              <div class="current-number" id="p-current-num">7</div>
+              <div class="current-name" id="p-current-name">Ayesha Malik</div>
+            </div>
+            <div class="my-token">
+              <div class="my-token-left">
+                <div class="my-token-label">Your Token</div>
+                <div class="my-token-number" id="p-my-token">12</div>
+              </div>
+              <div class="my-eta">
+                <div class="my-eta-label">Est. arrival</div>
+                <div class="my-eta-time" id="p-eta-time">4:50 PM</div>
+                <div class="my-eta-sub" id="p-eta-sub">~50 min away</div>
+              </div>
+            </div>
+            <div class="wait-info">
+              <div class="wait-chip">
+                <div class="wait-chip-val" id="p-ahead">5</div>
+                <div class="wait-chip-label">Ahead of you</div>
+              </div>
+              <div class="wait-chip">
+                <div class="wait-chip-val" id="p-interval">10 min</div>
+                <div class="wait-chip-label">Avg per patient</div>
+              </div>
+              <div class="wait-chip">
+                <div class="wait-chip-val" id="p-wait">50 min</div>
+                <div class="wait-chip-label">Est. wait</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SMS Notification Opt-in -->
+        <div class="sms-optin">
+          <div class="sms-optin-text">🔔 Alert me when my turn is <strong>2 numbers away</strong></div>
+          <button class="sms-toggle" id="p-sms-toggle" onclick="toggleSMS()"></button>
+        </div>
+
+        <!-- Upcoming list -->
+        <div class="queue-section" style="margin-top:12px; padding-bottom:16px;">
+          <div class="section-label">Upcoming</div>
+          <div id="p-upcoming-list" class="upcoming-list"></div>
+        </div>
+      </div>
+
+      <!-- BOOK SCREEN -->
+      <div class="p-screen" id="p-book">
+        <div style="padding:16px 16px 6px; font-family:'Fraunces',serif; font-size:22px; font-weight:600; color:var(--teal-dark);">Book Appointment</div>
+        <div style="padding:0 16px 10px; font-size:13px; color:var(--text-muted);">Dr. Muhammad Ibrahim · Fatima Medical Clinic</div>
+        <div class="p-form">
+          <div class="p-form-group">
+            <label class="p-label">Your Full Name</label>
+            <input type="text" class="p-input" placeholder="Muhammad Ali" id="book-name">
+          </div>
+          <div class="p-form-group">
+            <label class="p-label">Phone Number</label>
+            <input type="text" class="p-input" placeholder="03XX-XXXXXXX" id="book-phone">
+          </div>
+          <div class="p-form-group">
+            <label class="p-label">Reason for Visit</label>
+            <select class="p-input" id="book-reason">
+              <option value="">Select reason...</option>
+              <option>Checkup / General consultation</option>
+              <option>Follow-up from previous visit</option>
+              <option>Test results / Reports</option>
+              <option>New complaint</option>
+              <option>Prescription renewal</option>
+            </select>
+          </div>
+          <div class="p-form-group">
+            <label class="p-label">Visit Date</label>
+            <select class="p-input" id="book-date">
+              <option>Today — Friday, Apr 25</option>
+              <option>Tomorrow — Saturday, Apr 26</option>
+              <option>Sunday, Apr 27</option>
+            </select>
+          </div>
+          <div class="p-form-group">
+            <label class="p-label">Preferred Time Slot</label>
+            <div class="slot-grid">
+              <div class="slot-btn" onclick="selectSlot(this)"><div class="slot-time">10:00</div><div class="slot-avail">4 left</div></div>
+              <div class="slot-btn" onclick="selectSlot(this)"><div class="slot-time">11:00</div><div class="slot-avail">2 left</div></div>
+              <div class="slot-btn" onclick="selectSlot(this)"><div class="slot-time">12:00</div><div class="slot-avail">Full</div></div>
+              <div class="slot-btn" onclick="selectSlot(this)"><div class="slot-time">2:00 PM</div><div class="slot-avail">6 left</div></div>
+              <div class="slot-btn selected" onclick="selectSlot(this)"><div class="slot-time">3:00 PM</div><div class="slot-avail">3 left</div></div>
+              <div class="slot-btn" onclick="selectSlot(this)"><div class="slot-time">5:00 PM</div><div class="slot-avail">5 left</div></div>
+            </div>
+          </div>
+          <button class="book-btn" onclick="showConfirm()">Confirm Booking</button>
+        </div>
+      </div>
+
+      <!-- CONFIRM SCREEN -->
+      <div class="p-screen" id="p-confirm">
+        <div class="confirm-screen">
+          <div class="confirm-icon">
+            <svg viewBox="0 0 36 36" fill="none">
+              <circle cx="18" cy="18" r="18" fill="#1d9e75" opacity="0.15"/>
+              <path d="M10 18l6 6 10-10" stroke="#0f6e56" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="confirm-title">You're booked!</div>
+          <div class="confirm-sub">Your appointment is confirmed.<br>Show this token at the clinic.</div>
+          <div class="token-card">
+            <div class="token-label">Your Token Number</div>
+            <div class="token-big">17</div>
+            <div class="token-info">
+              <div class="token-info-item">
+                <div class="token-info-val">3:00 PM</div>
+                <div class="token-info-key">Slot</div>
+              </div>
+              <div class="token-info-item">
+                <div class="token-info-val">~3:40 PM</div>
+                <div class="token-info-key">Est. time</div>
+              </div>
+              <div class="token-info-item">
+                <div class="token-info-val">Apr 25</div>
+                <div class="token-info-key">Date</div>
+              </div>
+            </div>
+          </div>
+          <div style="background:var(--amber-light);border:1px solid rgba(232,144,10,0.25);border-radius:var(--r-sm);padding:12px 14px;width:100%;margin-bottom:14px;text-align:left;">
+            <div style="font-size:12px;font-weight:600;color:#7a4b00;margin-bottom:3px;">🔔 Get notified when your turn is near</div>
+            <div style="font-size:11px;color:#9a6000;">Enable SMS alerts so you don't have to keep checking the app</div>
+          </div>
+          <button class="book-btn" style="width:100%" onclick="showScreen('p-home','nav-home')">Track Live Queue →</button>
+        </div>
+      </div>
+
+      <!-- PAST VISITS SCREEN -->
+      <div class="p-screen" id="p-history">
+        <div style="padding:16px 16px 12px; font-family:'Fraunces',serif; font-size:22px; font-weight:600; color:var(--teal-dark);">Past Visits</div>
+        <div style="padding:0 16px 16px; font-size:13px; color:var(--text-muted);">Your visit history at DocQueue clinics</div>
+
+        <div class="past-visit-item">
+          <div class="pv-icon">👩‍⚕️</div>
+          <div class="pv-info">
+            <div class="pv-doc">Dr. Muhammad Ibrahim</div>
+            <div class="pv-meta">Apr 10, 2025 · Follow-up · Fatima Medical</div>
+          </div>
+          <div class="pv-token">08</div>
+        </div>
+        <div class="past-visit-item">
+          <div class="pv-icon">👩‍⚕️</div>
+          <div class="pv-info">
+            <div class="pv-doc">Dr. Muhammad Ibrahim</div>
+            <div class="pv-meta">Mar 26, 2025 · New complaint · Fatima Medical</div>
+          </div>
+          <div class="pv-token">15</div>
+        </div>
+        <div class="past-visit-item">
+          <div class="pv-icon">🧑‍⚕️</div>
+          <div class="pv-info">
+            <div class="pv-doc">Dr. Bilal Hussain</div>
+            <div class="pv-meta">Feb 14, 2025 · Checkup · City Health Clinic</div>
+          </div>
+          <div class="pv-token">03</div>
+        </div>
+        <div class="past-visit-item">
+          <div class="pv-icon">👩‍⚕️</div>
+          <div class="pv-info">
+            <div class="pv-doc">Dr. Muhammad Ibrahim</div>
+            <div class="pv-meta">Jan 05, 2025 · Test results · Fatima Medical</div>
+          </div>
+          <div class="pv-token">21</div>
+        </div>
+      </div>
+
+      <!-- Bottom nav -->
+      <div class="bottom-nav">
+        <button class="nav-item active" id="nav-home" onclick="showScreen('p-home','nav-home')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+          <span class="nav-label">Queue</span>
+        </button>
+        <button class="nav-item" id="nav-book" onclick="showScreen('p-book','nav-book')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span class="nav-label">Book</span>
+        </button>
+        <button class="nav-item" id="nav-history" onclick="showScreen('p-history','nav-history')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span class="nav-label">History</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== RECEPTIONIST / DOCTOR VIEW ===== -->
+<div class="view doctor-app" id="view-doctor">
+  <div class="d-header">
+    <div class="d-logo">Doc<strong>Queue</strong> <span style="font-size:13px;color:rgba(255,255,255,0.3);font-family:'DM Sans',sans-serif;font-weight:400;">Receptionist & Doctor</span></div>
+    <div class="d-header-right">
+      <div class="d-date" id="d-clock-display">Friday, Apr 25 · 4:00 PM</div>
+      <div class="d-doctor-pill" id="d-active-doctor-pill">Dr. Muhammad Ibrahim</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="d-tabs">
+    <button class="d-tab active" onclick="switchTab('queue')">📋 Queue</button>
+    <button class="d-tab" onclick="switchTab('followup')">📅 Follow-ups</button>
+    <button class="d-tab" onclick="switchTab('summary')">📊 Daily Summary</button>
+    <button class="d-tab" onclick="switchTab('schedule')">👨‍⚕️ Doctors</button>
+  </div>
+
+  <!-- QUEUE TAB -->
+  <div class="d-tab-pane active" id="tab-queue">
+    <div class="d-layout">
+      <!-- Left panel -->
+      <div class="d-left">
+
+        <!-- Clinic mode -->
+        <div class="clinic-mode-bar">
+          <div class="clinic-mode-title">Clinic Status</div>
+          <div class="mode-btns">
+            <button class="mode-btn active-open" id="mode-open" onclick="setClinicMode('open')">🟢 Open</button>
+            <button class="mode-btn" id="mode-break" onclick="setClinicMode('break')">☕ Break</button>
+            <button class="mode-btn" id="mode-delayed" onclick="setClinicMode('delayed')">⏳ Delayed</button>
+            <button class="mode-btn" id="mode-closed" onclick="setClinicMode('closed')">🔴 Closed</button>
+          </div>
+        </div>
+
+        <!-- Current patient control -->
+        <div class="current-control">
+          <div class="cc-label">Now Seeing</div>
+          <div class="cc-num" id="d-current-num">7</div>
+          <div class="cc-name" id="d-current-name">Ayesha Malik</div>
+          <div class="cc-visit-reason" id="d-current-reason">Follow-up from previous visit</div>
+          <div class="cc-actions" style="margin-bottom:8px;">
+            <button class="cc-btn cc-btn-done" onclick="markDone()">✓ Done — Call Next</button>
+            <button class="cc-btn cc-btn-skip" onclick="skipCurrent()">Skip</button>
+          </div>
+          <div class="cc-actions">
+            <button class="cc-btn cc-btn-noshow" onclick="markNoShow()" style="flex:1;">✗ No-show</button>
+            <button class="cc-btn" onclick="openFollowupModal()" style="flex:1;background:rgba(255,255,255,0.12);color:white;border:1px solid rgba(255,255,255,0.2);font-size:11px;">📅 Set Follow-up</button>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="d-stats">
+          <div class="d-stat"><div class="d-stat-val" id="d-done-count">6</div><div class="d-stat-label">Done today</div></div>
+          <div class="d-stat"><div class="d-stat-val" id="d-waiting-count">7</div><div class="d-stat-label">Still waiting</div></div>
+          <div class="d-stat"><div class="d-stat-val" id="d-noshow-count">0</div><div class="d-stat-label">No-shows</div></div>
+          <div class="d-stat"><div class="d-stat-val" id="d-online-count">5</div><div class="d-stat-label">Online booked</div></div>
+        </div>
+
+        <div class="d-sep"></div>
+
+        <!-- Avg interval -->
+        <div>
+          <div class="d-section-title">Avg time per patient</div>
+          <div class="interval-row">
+            <input type="number" class="d-input-sm" id="d-interval-input" value="10" min="1" max="60" oninput="updateInterval(this.value)">
+            <div class="interval-label">minutes per patient</div>
+          </div>
+        </div>
+
+        <div class="d-sep"></div>
+
+        <!-- Walk-in -->
+        <div>
+          <div class="d-section-title">Register Walk-in Patient</div>
+          <div class="walkin-form">
+            <input type="text" class="d-input" placeholder="Patient name" id="d-walkin-name">
+            <input type="text" class="d-input" placeholder="Phone (optional)" id="d-walkin-phone">
+            <select class="d-input" id="d-walkin-reason">
+              <option value="">Reason for visit...</option>
+              <option>Checkup / General consultation</option>
+              <option>Follow-up from previous visit</option>
+              <option>Test results / Reports</option>
+              <option>New complaint</option>
+              <option>Prescription renewal</option>
+            </select>
+            <select class="d-input" id="d-walkin-priority">
+              <option value="normal">Regular patient</option>
+              <option value="priority">⚠️ Priority (elderly / emergency)</option>
+              <option value="followup">🔄 Follow-up from last visit</option>
+              <option value="reports">📋 Brought reports</option>
+            </select>
+            <button class="walkin-btn" onclick="addWalkin()">+ Add to Queue</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right panel -->
+      <div class="d-right">
+        <div class="d-queue-header">
+          <div>
+            <div class="d-queue-title">Today's Queue</div>
+            <div class="d-queue-meta" id="d-queue-meta">14 patients · 7 remaining</div>
+          </div>
+          <!-- Multi-doctor selector -->
+          <div class="doctor-queue-selector">
+            <button class="dq-btn active" onclick="selectDoctorQueue(this,'amna')">Dr. Ibrahim</button>
+            <button class="dq-btn" onclick="selectDoctorQueue(this,'bilal')">Dr. Bilal</button>
+            <button class="dq-btn" onclick="selectDoctorQueue(this,'all')">All Queues</button>
+          </div>
+        </div>
+
+        <div class="queue-table-header">
+          <div>#</div>
+          <div>Patient</div>
+          <div>Type</div>
+          <div>Reason</div>
+          <div>Est. Time</div>
+          <div>Status / Actions</div>
+        </div>
+
+        <div id="d-queue-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOLLOW-UP TAB -->
+  <div class="d-tab-pane" id="tab-followup">
+    <div class="followup-panel">
+      <div class="followup-section-title">Follow-up Visit Tracker</div>
+      <div class="followup-section-sub">Patients with scheduled return visits — receptionist calls ahead</div>
+
+      <!-- Today's -->
+      <div class="followup-group">
+        <div class="followup-group-label fgl-today">🔴 Due Today — Apr 25</div>
+        <div class="followup-card urgent">
+          <div class="fc-avatar">F</div>
+          <div class="fc-info">
+            <div class="fc-name">Fatima Rizvi</div>
+            <div class="fc-meta">0301-1234567 · Dr. Ibrahim · BP follow-up</div>
+          </div>
+          <div class="fc-due">
+            <div class="fc-due-date">Apr 25</div>
+            <div class="fc-due-label">Today</div>
+          </div>
+          <div class="fc-actions">
+            <button class="fc-call-btn urgent" onclick="showToast('Calling Fatima Rizvi... 📞')">📞 Call</button>
+          </div>
+        </div>
+        <div class="followup-card urgent">
+          <div class="fc-avatar">Z</div>
+          <div class="fc-info">
+            <div class="fc-name">Zain Abbas</div>
+            <div class="fc-meta">0310-0123456 · Dr. Bilal · Diabetes review</div>
+          </div>
+          <div class="fc-due">
+            <div class="fc-due-date">Apr 25</div>
+            <div class="fc-due-label">Today</div>
+          </div>
+          <div class="fc-actions">
+            <button class="fc-call-btn urgent" onclick="showToast('Calling Zain Abbas... 📞')">📞 Call</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tomorrow's -->
+      <div class="followup-group">
+        <div class="followup-group-label fgl-tomorrow">🟡 Due Tomorrow — Apr 26</div>
+        <div class="followup-card soon">
+          <div class="fc-avatar">H</div>
+          <div class="fc-info">
+            <div class="fc-name">Hina Baig</div>
+            <div class="fc-meta">0311-1234568 · Dr. Ibrahim · Post-surgery checkup</div>
+          </div>
+          <div class="fc-due">
+            <div class="fc-due-date">Apr 26</div>
+            <div class="fc-due-label">Tomorrow</div>
+          </div>
+          <div class="fc-actions">
+            <button class="fc-call-btn" onclick="showToast('Calling Hina Baig... 📞')">📞 Remind</button>
+          </div>
+        </div>
+        <div class="followup-card soon">
+          <div class="fc-avatar">U</div>
+          <div class="fc-info">
+            <div class="fc-name">Usman Tariq</div>
+            <div class="fc-meta">0302-2345678 · Dr. Bilal · Lab reports ready</div>
+          </div>
+          <div class="fc-due">
+            <div class="fc-due-date">Apr 26</div>
+            <div class="fc-due-label">Tomorrow</div>
+          </div>
+          <div class="fc-actions">
+            <button class="fc-call-btn" onclick="showToast('Calling Usman Tariq... 📞')">📞 Remind</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upcoming -->
+      <div class="followup-group">
+        <div class="followup-group-label fgl-upcoming">📆 Upcoming</div>
+        <div class="followup-card">
+          <div class="fc-avatar">S</div>
+          <div class="fc-info">
+            <div class="fc-name">Sara Qureshi</div>
+            <div class="fc-meta">0303-3456789 · Dr. Ibrahim · Thyroid follow-up</div>
+          </div>
+          <div class="fc-due">
+            <div class="fc-due-date">Apr 30</div>
+            <div class="fc-due-label">In 5 days</div>
+          </div>
+          <div class="fc-actions">
+            <button class="fc-call-btn" onclick="showToast('Remind scheduled for Apr 29')">📅 Schedule</button>
+          </div>
+        </div>
+        <div class="followup-card">
+          <div class="fc-avatar">M</div>
+          <div class="fc-info">
+            <div class="fc-name">Mariam Siddiq</div>
+            <div class="fc-meta">0309-9012345 · Dr. Ibrahim · Monthly BP check</div>
+          </div>
+          <div class="fc-due">
+            <div class="fc-due-date">May 10</div>
+            <div class="fc-due-label">In 15 days</div>
+          </div>
+          <div class="fc-actions">
+            <button class="fc-call-btn" onclick="showToast('Remind scheduled for May 9')">📅 Schedule</button>
+          </div>
+        </div>
+        <div class="followup-card">
+          <div class="fc-avatar">A</div>
+          <div class="fc-info">
+            <div class="fc-name">Ali Hassan</div>
+            <div class="fc-meta">0304-4567890 · Dr. Bilal · Post-medication review</div>
+          </div>
+          <div class="fc-due">
+            <div class="fc-due-date">May 15</div>
+            <div class="fc-due-label">In 20 days</div>
+          </div>
+          <div class="fc-actions">
+            <button class="fc-call-btn" onclick="showToast('Remind scheduled for May 14')">📅 Schedule</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DAILY SUMMARY TAB -->
+  <div class="d-tab-pane" id="tab-summary">
+    <div class="summary-panel">
+      <div class="summary-header">
+        <div class="summary-title">Daily Summary</div>
+        <div class="summary-date">Friday, April 25, 2025</div>
+      </div>
+
+      <div class="summary-kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-val" id="sum-seen">6</div>
+          <div class="kpi-label">Patients Seen</div>
+          <div class="kpi-sub">of 14 total</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val">10m</div>
+          <div class="kpi-label">Avg per Patient</div>
+          <div class="kpi-sub">on time</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val" id="sum-noshow">0</div>
+          <div class="kpi-label">No-shows</div>
+          <div class="kpi-sub">0% rate</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val">2:00</div>
+          <div class="kpi-label">Peak Hour</div>
+          <div class="kpi-sub">5 patients/hr</div>
+        </div>
+      </div>
+
+      <div class="summary-chart-area">
+        <div class="chart-title">Patients by Hour</div>
+        <div class="hour-bars" id="summary-hour-bars">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
+        <div class="summary-chart-area">
+          <div class="chart-title">By Visit Type</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:10px;height:10px;border-radius:50%;background:#1d9e75;flex-shrink:0;"></div>
+              <div style="flex:1;font-size:12px;color:rgba(255,255,255,0.6);">Online bookings</div>
+              <div style="font-size:13px;font-weight:600;color:white;">8</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:10px;height:10px;border-radius:50%;background:#e8900a;flex-shrink:0;"></div>
+              <div style="flex:1;font-size:12px;color:rgba(255,255,255,0.6);">Walk-ins</div>
+              <div style="font-size:13px;font-weight:600;color:white;">6</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:10px;height:10px;border-radius:50%;background:#7c3aed;flex-shrink:0;"></div>
+              <div style="flex:1;font-size:12px;color:rgba(255,255,255,0.6);">Follow-ups</div>
+              <div style="font-size:13px;font-weight:600;color:white;">4</div>
+            </div>
+          </div>
+        </div>
+        <div class="summary-chart-area">
+          <div class="chart-title">By Visit Reason</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="flex:1;font-size:12px;color:rgba(255,255,255,0.6);">New complaint</div>
+              <div style="font-size:13px;font-weight:600;color:white;">5</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="flex:1;font-size:12px;color:rgba(255,255,255,0.6);">Follow-up</div>
+              <div style="font-size:13px;font-weight:600;color:white;">4</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="flex:1;font-size:12px;color:rgba(255,255,255,0.6);">Checkup</div>
+              <div style="font-size:13px;font-weight:600;color:white;">3</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="flex:1;font-size:12px;color:rgba(255,255,255,0.6);">Test results</div>
+              <div style="font-size:13px;font-weight:600;color:white;">2</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOCTORS / SCHEDULE TAB -->
+  <div class="d-tab-pane" id="tab-schedule">
+    <div class="schedule-panel">
+      <div class="schedule-title">Doctor Profiles & Availability</div>
+      <div class="schedule-sub">Manage which doctors are available on which days and their queue status</div>
+      <div class="doctor-cards-grid">
+        <div class="doctor-profile-card">
+          <div class="dpc-header">
+            <div class="dpc-avatar">A</div>
+            <div>
+              <div class="dpc-name">Dr. Muhammad Ibrahim</div>
+              <div class="dpc-spec">M.B.B.S (SIMS), MS (ENT) — ENT Specialist</div>
+            </div>
+          </div>
+          <div class="dpc-days">
+            <span class="dpc-day active">Mon</span>
+            <span class="dpc-day active">Tue</span>
+            <span class="dpc-day active">Wed</span>
+            <span class="dpc-day active">Thu</span>
+            <span class="dpc-day active">Fri</span>
+            <span class="dpc-day off">Sat</span>
+            <span class="dpc-day off">Sun</span>
+          </div>
+          <div class="dpc-hours">🕙 10:00 AM – 6:00 PM &nbsp;·&nbsp; Max 20 patients/day</div>
+          <div class="dpc-status available"><span class="dpc-dot"></span> Available today</div>
+        </div>
+        <div class="doctor-profile-card">
+          <div class="dpc-header">
+            <div class="dpc-avatar" style="background:linear-gradient(135deg,#1a4dbf,#5b8dee);">B</div>
+            <div>
+              <div class="dpc-name">Dr. Bilal Hussain</div>
+              <div class="dpc-spec">MBBS, MD — Internal Medicine</div>
+            </div>
+          </div>
+          <div class="dpc-days">
+            <span class="dpc-day off">Mon</span>
+            <span class="dpc-day active">Tue</span>
+            <span class="dpc-day off">Wed</span>
+            <span class="dpc-day active">Thu</span>
+            <span class="dpc-day off">Fri</span>
+            <span class="dpc-day active">Sat</span>
+            <span class="dpc-day off">Sun</span>
+          </div>
+          <div class="dpc-hours">🕑 2:00 PM – 8:00 PM &nbsp;·&nbsp; Max 15 patients/day</div>
+          <div class="dpc-status unavailable"><span class="dpc-dot"></span> Not available today (Fri)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Follow-up Date Modal -->
+<div class="modal-overlay" id="followup-modal">
+  <div class="modal-box">
+    <div class="modal-title">📅 Schedule Follow-up Visit</div>
+    <div class="modal-sub" id="modal-patient-name">Patient: Ayesha Malik</div>
+
+    <div class="modal-field">
+      <label class="modal-label">Quick Select</label>
+      <div class="quick-days">
+        <button class="quick-day-btn" onclick="setFollowupDays(7, this)">7 days</button>
+        <button class="quick-day-btn active" onclick="setFollowupDays(10, this)">10 days</button>
+        <button class="quick-day-btn" onclick="setFollowupDays(15, this)">15 days</button>
+        <button class="quick-day-btn" onclick="setFollowupDays(30, this)">1 month</button>
+        <button class="quick-day-btn" onclick="setFollowupDays(60, this)">2 months</button>
+      </div>
+    </div>
+
+    <div class="modal-field">
+      <label class="modal-label">Return Date</label>
+      <input type="date" class="d-input" id="followup-date-input">
+    </div>
+
+    <div class="modal-field">
+      <label class="modal-label">Note for Receptionist</label>
+      <input type="text" class="d-input" id="followup-note" placeholder="e.g. BP check, bring reports">
+    </div>
+
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeFollowupModal()">Cancel</button>
+      <button class="modal-btn modal-btn-primary" onclick="saveFollowup()">Save Follow-up</button>
+    </div>
+  </div>
+</div>
+
+<!-- Patient Note Modal -->
+<div class="modal-overlay" id="note-modal">
+  <div class="modal-box note-modal">
+    <div class="modal-title">📝 Patient Note</div>
+    <div class="modal-sub" id="note-patient-name">Token #7 — Ayesha Malik</div>
+    <div class="modal-field">
+      <label class="modal-label">Note for Doctor</label>
+      <select class="d-input" id="note-preset" onchange="applyNotePreset()">
+        <option value="">Select a preset or type below...</option>
+        <option value="priority">⚠️ Priority patient (elderly/emergency)</option>
+        <option value="followup">🔄 Follow-up from last week</option>
+        <option value="reports">📋 Brought reports/lab results</option>
+        <option value="urgent">🚨 Urgent — needs immediate attention</option>
+      </select>
+    </div>
+    <div class="modal-field" style="margin-top:8px;">
+      <input type="text" class="d-input" id="note-text" placeholder="Or type a custom note...">
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeNoteModal()">Cancel</button>
+      <button class="modal-btn modal-btn-primary" onclick="saveNote()">Save Note</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===================== SHARED STATE =====================
+let clinicMode = 'open'; // open | break | delayed | closed
+let smsEnabled = false;
+let activeNoteToken = null;
+let activeFollowupToken = null;
+let activeDoctorQueue = 'amna';
+
+const doctors = {
+  amna: { name: 'Dr. Muhammad Ibrahim', spec: 'ENT Specialist' },
+  bilal: { name: 'Dr. Bilal Hussain', spec: 'Internal Medicine' }
+};
+
+let state = {
+  currentToken: 7,
+  interval: 10,
+  tokenStartTime: new Date(),
+  queue: [
+    { token: 1, name: 'Fatima Rizvi', phone: '0301-1234567', type: 'online', status: 'done', reason: 'Follow-up from previous visit', note: '', doctor: 'amna', followupDate: null },
+    { token: 2, name: 'Usman Tariq', phone: '0302-2345678', type: 'walkin', status: 'done', reason: 'Test results / Reports', note: '📋 Brought reports', doctor: 'amna', followupDate: null },
+    { token: 3, name: 'Sara Qureshi', phone: '0303-3456789', type: 'online', status: 'done', reason: 'Checkup / General consultation', note: '', doctor: 'amna', followupDate: null },
+    { token: 4, name: 'Ali Hassan', phone: '0304-4567890', type: 'walkin', status: 'done', reason: 'New complaint', note: '', doctor: 'amna', followupDate: null },
+    { token: 5, name: 'Nadia Ansari', phone: '0305-5678901', type: 'online', status: 'done', reason: 'Prescription renewal', note: '', doctor: 'amna', followupDate: null },
+    { token: 6, name: 'Bilal Khan', phone: '0306-6789012', type: 'walkin', status: 'done', reason: 'New complaint', note: '⚠️ Priority patient', doctor: 'amna', followupDate: null },
+    { token: 7, name: 'Ayesha Malik', phone: '0307-7890123', type: 'online', status: 'current', reason: 'Follow-up from previous visit', note: '', doctor: 'amna', followupDate: null },
+    { token: 8, name: 'Hamza Iqbal', phone: '0308-8901234', type: 'walkin', status: 'waiting', reason: 'New complaint', note: '', doctor: 'amna', followupDate: null },
+    { token: 9, name: 'Mariam Siddiq', phone: '0309-9012345', type: 'online', status: 'waiting', reason: 'Test results / Reports', note: '', doctor: 'amna', followupDate: null },
+    { token: 10, name: 'Zain Abbas', phone: '0310-0123456', type: 'walkin', status: 'waiting', reason: 'Checkup / General consultation', note: '', doctor: 'amna', followupDate: null },
+    { token: 11, name: 'Hina Baig', phone: '0311-1234568', type: 'online', status: 'waiting', reason: 'New complaint', note: '', doctor: 'amna', followupDate: null },
+    { token: 12, name: 'You', phone: '0312-2345679', type: 'online', status: 'waiting', reason: 'Checkup / General consultation', note: '', doctor: 'amna', followupDate: null },
+    { token: 13, name: 'Saad Mirza', phone: '0313-3456780', type: 'walkin', status: 'waiting', reason: 'New complaint', note: '', doctor: 'amna', followupDate: null },
+    { token: 14, name: 'Layla Chaudry', phone: '0314-4567891', type: 'online', status: 'waiting', reason: 'Prescription renewal', note: '', doctor: 'amna', followupDate: null },
+  ]
+};
+
+const MY_TOKEN = 12;
+
+// ===================== TIME UTILS =====================
+function formatTime(date) {
+  let h = date.getHours(), m = date.getMinutes();
+  let ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${m.toString().padStart(2,'0')} ${ampm}`;
+}
+
+function getETA(tokenNum) {
+  const currentIdx = state.queue.findIndex(q => q.status === 'current');
+  const targetIdx = state.queue.findIndex(q => q.token === tokenNum);
+  const diff = targetIdx - currentIdx;
+  if (diff <= 0) return null;
+  const etaMs = state.tokenStartTime.getTime() + diff * state.interval * 60000;
+  return new Date(etaMs);
+}
+
+function getMinutesFromNow(date) {
+  return Math.round((date - new Date()) / 60000);
+}
+
+// ===================== RENDER =====================
+function renderAll() {
+  renderPatient();
+  renderDoctor();
+  renderSummary();
+}
+
+function renderPatient() {
+  const current = state.queue.find(q => q.status === 'current');
+  if (!current) return;
+
+  document.getElementById('p-current-num').textContent = current.token;
+  document.getElementById('p-current-name').textContent = current.name;
+  document.getElementById('p-live-badge').textContent = `Live: Token ${current.token}`;
+
+  // Clinic status on patient side
+  const banner = document.getElementById('p-clinic-status-banner');
+  const dot = document.getElementById('p-live-dot');
+  const statusLabel = document.getElementById('p-live-status-label');
+
+  banner.className = 'clinic-status-banner';
+  if (clinicMode === 'open') {
+    banner.classList.add('csb-open');
+    banner.querySelector('.csb-icon').textContent = '🟢';
+    document.getElementById('p-clinic-status-text').textContent = 'Clinic is open — Doctor is available';
+    dot.className = 'live-dot';
+    statusLabel.textContent = 'Clinic is open';
+    statusLabel.style.color = 'var(--teal)';
+  } else if (clinicMode === 'break') {
+    banner.classList.add('csb-break');
+    banner.querySelector('.csb-icon').textContent = '☕';
+    document.getElementById('p-clinic-status-text').textContent = 'Doctor is on a short break — resuming shortly';
+    dot.className = 'live-dot paused';
+    statusLabel.textContent = 'Doctor on break';
+    statusLabel.style.color = 'var(--blue)';
+  } else if (clinicMode === 'delayed') {
+    banner.classList.add('csb-delayed');
+    banner.querySelector('.csb-icon').textContent = '⏳';
+    document.getElementById('p-clinic-status-text').textContent = 'Doctor is delayed — ETAs may shift';
+    dot.className = 'live-dot paused';
+    statusLabel.textContent = 'Doctor delayed';
+    statusLabel.style.color = 'var(--amber)';
+  } else if (clinicMode === 'closed') {
+    banner.classList.add('csb-closed');
+    banner.querySelector('.csb-icon').textContent = '🔴';
+    document.getElementById('p-clinic-status-text').textContent = 'Clinic is closed for today';
+    dot.className = 'live-dot closed';
+    statusLabel.textContent = 'Clinic closed';
+    statusLabel.style.color = 'var(--red)';
+  }
+
+  const waiting = state.queue.filter(q => q.status === 'waiting');
+  const myPos = waiting.findIndex(q => q.token === MY_TOKEN);
+  const ahead = myPos >= 0 ? myPos : 0;
+  document.getElementById('p-ahead').textContent = ahead;
+  document.getElementById('p-interval').textContent = state.interval + ' min';
+  document.getElementById('p-wait').textContent = (ahead * state.interval) + ' min';
+
+  const myETA = getETA(MY_TOKEN);
+  if (myETA) {
+    document.getElementById('p-eta-time').textContent = formatTime(myETA);
+    const mins = getMinutesFromNow(myETA);
+    document.getElementById('p-eta-sub').textContent = `~${mins} min away`;
+  }
+
+  const ul = document.getElementById('p-upcoming-list');
+  ul.innerHTML = '';
+  const upcoming = waiting.slice(0, 5);
+  upcoming.forEach(p => {
+    const eta = getETA(p.token);
+    const isMe = p.token === MY_TOKEN;
+    const div = document.createElement('div');
+    div.style.cssText = `display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;border:1px solid ${isMe ? 'var(--teal)' : 'var(--border)'};background:${isMe ? 'var(--teal-light)' : 'var(--surface)'};`;
+    div.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-family:'Fraunces',serif;font-size:18px;font-weight:600;color:${isMe ? 'var(--teal-dark)':'var(--text)'};">${p.token}</span>
+        <span style="font-size:13px;color:${isMe ? 'var(--teal-dark)':'var(--text-muted)'};">${isMe ? '🫵 You' : p.name.split(' ')[0]}</span>
+      </div>
+      <span style="font-size:13px;font-weight:600;color:${isMe ? 'var(--teal)':'var(--text-hint)'};">${eta ? formatTime(eta) : '—'}</span>
+    `;
+    ul.appendChild(div);
+  });
+}
+
+function renderDoctor() {
+  const current = state.queue.find(q => q.status === 'current');
+  if (current) {
+    document.getElementById('d-current-num').textContent = current.token;
+    document.getElementById('d-current-name').textContent = current.name;
+    document.getElementById('d-current-reason').textContent = current.reason || '—';
+  }
+
+  const done = state.queue.filter(q => q.status === 'done').length;
+  const waiting = state.queue.filter(q => q.status === 'waiting').length;
+  const noshows = state.queue.filter(q => q.status === 'noshow').length;
+  const online = state.queue.filter(q => q.type === 'online').length;
+
+  document.getElementById('d-done-count').textContent = done;
+  document.getElementById('d-waiting-count').textContent = waiting;
+  document.getElementById('d-noshow-count').textContent = noshows;
+  document.getElementById('d-online-count').textContent = online;
+  document.getElementById('d-queue-meta').textContent = `${state.queue.length} patients · ${waiting} remaining · ${noshows} no-shows`;
+
+  const list = document.getElementById('d-queue-list');
+  list.innerHTML = '';
+
+  const filtered = activeDoctorQueue === 'all' ? state.queue : state.queue.filter(p => p.doctor === activeDoctorQueue);
+
+  filtered.forEach(p => {
+    const row = document.createElement('div');
+    const isPriority = p.note && p.note.includes('Priority');
+    row.className = `queue-row ${p.status === 'current' ? 'current' : ''} ${p.status === 'done' ? 'done' : ''} ${p.status === 'noshow' ? 'noshow' : ''} ${isPriority ? 'priority' : ''}`;
+    const eta = p.status === 'waiting' ? getETA(p.token) : null;
+    const typePill = p.note && p.note.includes('Priority')
+      ? `<span class="q-type-pill pill-priority">Priority</span>`
+      : p.type === 'online'
+        ? `<span class="q-type-pill pill-online">Online</span>`
+        : `<span class="q-type-pill pill-walkin">Walk-in</span>`;
+
+    let statusCell = '';
+    if (p.status === 'current') {
+      statusCell = `<span class="status-badge status-ongoing">● Now</span>`;
+    } else if (p.status === 'done') {
+      statusCell = `<span class="status-badge status-done">Done${p.followupDate ? ' 📅' : ''}</span>`;
+    } else if (p.status === 'noshow') {
+      statusCell = `<span class="status-badge status-noshow">No-show</span>`;
+    } else {
+      statusCell = `
+        <div style="display:flex;gap:4px;align-items:center;">
+          <span class="status-badge status-waiting">Waiting</span>
+          <button class="q-note-btn" onclick="openNoteModal(${p.token})">📝</button>
+        </div>`;
+    }
+
+    const reasonShort = p.reason ? p.reason.split('/')[0].trim().split(' ').slice(0,2).join(' ') : '—';
+
+    row.innerHTML = `
+      <div class="q-num">${p.token}</div>
+      <div>
+        <div class="q-name">${p.name}</div>
+        <div class="q-name-sub">${p.phone}</div>
+        ${p.note ? `<div class="q-note-badge">${p.note}</div>` : ''}
+      </div>
+      <div>${typePill}</div>
+      <div class="q-eta" style="font-size:11px;color:rgba(255,255,255,0.45);">${reasonShort}</div>
+      <div class="q-eta">${eta ? formatTime(eta) : p.status === 'current' ? 'Now' : '—'}</div>
+      <div>${statusCell}</div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function renderSummary() {
+  const done = state.queue.filter(q => q.status === 'done').length;
+  const noshows = state.queue.filter(q => q.status === 'noshow').length;
+  const sumSeen = document.getElementById('sum-seen');
+  const sumNoshow = document.getElementById('sum-noshow');
+  if (sumSeen) sumSeen.textContent = done;
+  if (sumNoshow) sumNoshow.textContent = noshows;
+
+  // Draw hour chart
+  const barsContainer = document.getElementById('summary-hour-bars');
+  if (!barsContainer) return;
+  const hourData = [
+    { label: '10am', val: 2 }, { label: '11am', val: 3 }, { label: '12pm', val: 1 },
+    { label: '2pm', val: 5 }, { label: '3pm', val: 4 }, { label: '4pm', val: 3 },
+    { label: '5pm', val: 2 }, { label: '6pm', val: 1 }
+  ];
+  const maxVal = Math.max(...hourData.map(h => h.val));
+  barsContainer.innerHTML = hourData.map(h => `
+    <div class="hour-bar-wrap">
+      <div class="hour-bar ${h.val === maxVal ? 'peak' : ''}" style="height:${(h.val/maxVal)*70}px;"></div>
+      <div class="hour-bar-label">${h.label}</div>
+    </div>
+  `).join('');
+}
+
+// ===================== ACTIONS =====================
+function markDone() {
+  const currentIdx = state.queue.findIndex(q => q.status === 'current');
+  if (currentIdx === -1) return;
+  state.queue[currentIdx].status = 'done';
+  callNextWaiting(`✓ Done — Called Token`);
+}
+
+function skipCurrent() {
+  const currentIdx = state.queue.findIndex(q => q.status === 'current');
+  if (currentIdx === -1) return;
+  state.queue[currentIdx].status = 'waiting';
+  callNextWaiting('Skipped — Now calling Token');
+}
+
+function markNoShow() {
+  const currentIdx = state.queue.findIndex(q => q.status === 'current');
+  if (currentIdx === -1) return;
+  state.queue[currentIdx].status = 'noshow';
+  callNextWaiting('No-show marked — Called Token');
+}
+
+function callNextWaiting(msg) {
+  const nextWaiting = state.queue.find(q => q.status === 'waiting');
+  if (nextWaiting) {
+    nextWaiting.status = 'current';
+    state.currentToken = nextWaiting.token;
+    state.tokenStartTime = new Date();
+    showToast(`${msg} ${nextWaiting.token} — ${nextWaiting.name}`);
+  } else {
+    showToast('All patients seen for today!');
+  }
+  renderAll();
+}
+
+function addWalkin() {
+  const name = document.getElementById('d-walkin-name').value.trim();
+  const phone = document.getElementById('d-walkin-phone').value.trim() || '—';
+  const reason = document.getElementById('d-walkin-reason').value || 'New complaint';
+  const priorityVal = document.getElementById('d-walkin-priority').value;
+
+  if (!name) { showToast('Please enter a patient name'); return; }
+
+  const noteMap = {
+    normal: '',
+    priority: '⚠️ Priority patient (elderly/emergency)',
+    followup: '🔄 Follow-up from last visit',
+    reports: '📋 Brought reports'
+  };
+
+  const nextToken = Math.max(...state.queue.map(q => q.token)) + 1;
+  state.queue.push({
+    token: nextToken, name, phone,
+    type: priorityVal === 'normal' ? 'walkin' : 'walkin',
+    status: 'waiting', reason, note: noteMap[priorityVal] || '',
+    doctor: activeDoctorQueue === 'all' ? 'amna' : activeDoctorQueue,
+    followupDate: null
+  });
+
+  document.getElementById('d-walkin-name').value = '';
+  document.getElementById('d-walkin-phone').value = '';
+  document.getElementById('d-walkin-reason').value = '';
+  document.getElementById('d-walkin-priority').value = 'normal';
+  showToast(`Added ${name} as Token ${nextToken}`);
+  renderAll();
+}
+
+function updateInterval(val) {
+  const v = parseInt(val);
+  if (v > 0 && v <= 120) {
+    state.interval = v;
+    renderAll();
+  }
+}
+
+// ===================== CLINIC MODE =====================
+function setClinicMode(mode) {
+  clinicMode = mode;
+  ['open','break','delayed','closed'].forEach(m => {
+    const btn = document.getElementById('mode-' + m);
+    btn.className = 'mode-btn';
+    if (m === mode) btn.classList.add('active-' + m);
+  });
+  const msgs = {
+    open: '🟢 Clinic is now Open',
+    break: '☕ Doctor on Break — patients notified',
+    delayed: '⏳ Delay mode on — ETAs adjusted',
+    closed: '🔴 Clinic closed for today'
+  };
+  showToast(msgs[mode]);
+  renderPatient();
+}
+
+// ===================== FOLLOW-UP MODAL =====================
+function openFollowupModal() {
+  const current = state.queue.find(q => q.status === 'current');
+  if (!current) return;
+  activeFollowupToken = current.token;
+  document.getElementById('modal-patient-name').textContent = `Token #${current.token} — ${current.name}`;
+  setFollowupDays(10, null);
+  document.getElementById('followup-modal').classList.add('open');
+}
+
+function closeFollowupModal() {
+  document.getElementById('followup-modal').classList.remove('open');
+  activeFollowupToken = null;
+}
+
+function setFollowupDays(days, btn) {
+  document.querySelectorAll('.quick-day-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  document.getElementById('followup-date-input').value = d.toISOString().split('T')[0];
+}
+
+function saveFollowup() {
+  const dateVal = document.getElementById('followup-date-input').value;
+  const note = document.getElementById('followup-note').value;
+  if (!dateVal) { showToast('Please select a date'); return; }
+
+  if (activeFollowupToken !== null) {
+    const p = state.queue.find(q => q.token === activeFollowupToken);
+    if (p) {
+      p.followupDate = dateVal;
+      p.followupNote = note;
+    }
+  }
+
+  const d = new Date(dateVal);
+  const label = d.toLocaleDateString('en-PK', { month: 'short', day: 'numeric' });
+  showToast(`📅 Follow-up set for ${label}`);
+  closeFollowupModal();
+  renderDoctor();
+}
+
+// ===================== NOTE MODAL =====================
+function openNoteModal(token) {
+  activeNoteToken = token;
+  const p = state.queue.find(q => q.token === token);
+  document.getElementById('note-patient-name').textContent = `Token #${token} — ${p ? p.name : ''}`;
+  document.getElementById('note-text').value = p && p.note ? p.note : '';
+  document.getElementById('note-preset').value = '';
+  document.getElementById('note-modal').classList.add('open');
+}
+
+function closeNoteModal() {
+  document.getElementById('note-modal').classList.remove('open');
+  activeNoteToken = null;
+}
+
+function applyNotePreset() {
+  const presetMap = {
+    priority: '⚠️ Priority patient (elderly/emergency)',
+    followup: '🔄 Follow-up from last week',
+    reports: '📋 Brought reports/lab results',
+    urgent: '🚨 Urgent — needs immediate attention'
+  };
+  const val = document.getElementById('note-preset').value;
+  if (val) document.getElementById('note-text').value = presetMap[val] || '';
+}
+
+function saveNote() {
+  const note = document.getElementById('note-text').value.trim();
+  if (activeNoteToken !== null) {
+    const p = state.queue.find(q => q.token === activeNoteToken);
+    if (p) p.note = note;
+  }
+  closeNoteModal();
+  renderDoctor();
+  showToast('Note saved');
+}
+
+// ===================== MULTI-DOCTOR =====================
+function selectDoctorQueue(btn, doctor) {
+  document.querySelectorAll('.dq-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeDoctorQueue = doctor;
+  const pill = document.getElementById('d-active-doctor-pill');
+  if (doctor === 'amna') pill.textContent = 'Dr. Muhammad Ibrahim';
+  else if (doctor === 'bilal') pill.textContent = 'Dr. Bilal Hussain';
+  else pill.textContent = 'All Doctors';
+  renderDoctor();
+}
+
+// ===================== UI HELPERS =====================
+function showScreen(id, navId) {
+  document.querySelectorAll('.p-screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (navId) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(navId).classList.add('active');
+  }
+}
+
+function selectSlot(el) {
+  document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function showConfirm() {
+  const name = document.getElementById('book-name').value.trim();
+  if (!name) { alert('Please enter your name'); return; }
+  showScreen('p-confirm');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+}
+
+function switchApp(which) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`view-${which}`).classList.add('active');
+  document.getElementById(`toggle-${which}`).classList.add('active');
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.d-tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.d-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelectorAll('.d-tab').forEach(t => {
+    if (t.textContent.toLowerCase().includes(tab === 'queue' ? 'queue' : tab === 'followup' ? 'follow' : tab === 'summary' ? 'summary' : 'doctor')) {
+      t.classList.add('active');
+    }
+  });
+}
+
+function toggleSMS() {
+  smsEnabled = !smsEnabled;
+  const toggle = document.getElementById('p-sms-toggle');
+  toggle.classList.toggle('on', smsEnabled);
+  showToast(smsEnabled ? '🔔 SMS alerts enabled — you\'ll be notified 2 tokens before your turn' : '🔕 SMS alerts disabled');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function updateClocks() {
+  const now = new Date();
+  document.getElementById('p-clock').textContent = formatTime(now);
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('d-clock-display').textContent =
+    `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()} · ${formatTime(now)}`;
+}
+
+// Close modals on backdrop click
+document.getElementById('followup-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeFollowupModal();
+});
+document.getElementById('note-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeNoteModal();
+});
+
+// Tab button fix
+document.querySelectorAll('.d-tab').forEach((tab, idx) => {
+  const tabIds = ['queue','followup','summary','schedule'];
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.d-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.d-tab-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + tabIds[idx]).classList.add('active');
+  });
+});
+
+// Init
+renderAll();
+updateClocks();
+setInterval(() => { updateClocks(); renderAll(); }, 10000);
+</script>
+</body>
+</html>
